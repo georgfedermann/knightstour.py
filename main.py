@@ -1,8 +1,9 @@
-from game.knights_tour import KnightMoves
+from game.knights_tour import Board, KnightsTour
 
 def main():
-    knight_moves = KnightMoves()
-    knight_moves.find_path(knight_moves.initialize_chess_board(), (3, 4))
+    board = Board()
+    knights_tour = KnightsTour()
+    print(knights_tour.find_knights_path(board, (6, 2), 1))
 
 if __name__ == "__main__":
     main()

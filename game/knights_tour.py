@@ -1,96 +1,136 @@
+from copy import deepcopy
+from random import sample
 from typing import List, Tuple
 
-class KnightMoves:
-    """
-    The class provides an algorithm to solve the Knight's Tour problem.
-    """
+class Commons:
+    knight_moves = [(2,1),(1,2),(-1,2),(-2,1),(-2,-1),(-1,-2),(1,-2),(2,-1)]
 
+class Board:
+    """
+    Represents a chessboard for the Knight's Tour problem.
+
+    The Board class is responsible for managing the state of the board,
+    including the positions visited by the Knight. It offers functionality
+    to add a new position makring the knight's move and tracks the start
+    position and the total number of moves made.
+    """
     def __init__(self):
-        self.knight_moves = [(2, -1), (1, 2), (-2, -1), (-1, -2), (2, 1), (-2, 1), (1, -2), (-1, 2)]
+        self.squares = [[0 for _ in range(8)] for _ in range(8)]
+        self.move_count = 0
+        self.start_position = None
 
-    def apply_knight_move(self, col, row, move) -> Tuple[int, int]:
-        return (col + move[0], row + move[1]) 
+    def __str__(self):
+        result = ""
+        heuristics = self.get_heuristics()
+        for row in range(8):
+            result += f'{self.squares[row]}   ---   {heuristics[row]}\n'
 
+        return result
 
-    def initialize_chess_board(self) -> List[List[int]]:
-        return [[0 for _ in range(8)] for _ in range(8)]
-
-    def generate_heuristics(self, board) -> List[List[int]]:
+    def is_valid_position(self, position: Tuple[int, int]) -> bool:
         """
-        Calculates for each field of the chess board from how many other unvisited
-        fields it is still reachable.
+        Check if a proposed position is valid on the board.
+        A position is considered valid if it is within the 8x8 board boundaries
+        and the square has not been previously visited.
+        Args:
+            position (Tuple[int,int]): To position to check, represented as a tuple of (row, column).
+        Returns:
+            bool: True if the position is valid and unvisited, False otherwise.
         """
-        heuristics_board = [[0 for _ in range(8)] for _ in range(8)]
-        for y in range(8):
-            for x in range(8):
-                if board[x][y] != 0:
-                    heuristics_board[x][y] = -1
+        return (0 <= position[0] <= 7 and
+                0 <= position[1] <= 7 and
+                self.squares[position[0]][position[1]] == 0)
+
+    def add_position(self, position: Tuple[int, int]) -> bool:
+        if not self.is_valid_position(position):
+            return False
+
+        if (self.move_count == 0):
+            self.start_position = position
+
+        self.move_count += 1
+        self.squares[position[0]][position[1]] = self.move_count
+        return True
+
+    def get_heuristics(self) -> List[List[int]]:
+        heuristics = [[0 for _ in range(8)] for _ in range(8)]
+        for row in range(8):
+            for col in range(8):
+                if self.squares[row][col] != 0:
+                    heuristics[row][col] = -1
                 else:
-                    for move in self.knight_moves:
-                        target = self.apply_knight_move(x, y, move)
-                        if 0 <= target[0] <= 7 and 0 <= target[1] <= 7 and board[target[0]][target[1]] == 0:
-                            # increase the reachability count for a field for each field from which it can be accessed
-                            heuristics_board[x][y] += 1
-        return heuristics_board
+                    for move in Commons.knight_moves:
+                        new_position = (row + move[0], col + move[1])
+                        if self.is_valid_position(new_position):
+                            heuristics[row][col] += 1
+        return heuristics
 
-    def print_board(self, board) -> None:
+    def get_moves_ranked_by_accessibility(self, current_position: Tuple[int, int]) -> List[Tuple[int, int]]:
         """
-        Prints the given board to stdout
+        Returns the indices of Commons.knight_moves which constitute valid
+        moves from the indicated current position.
+        The moves are sorted by the accessibility of the target squares of the
+        move in ascending order.
         """
-        for y in range(8):
-            for x in range(8):
-                print(board[y][x], end=' ')
-            print()
+        moves = [[] for _ in range(9)]
+        heuristics = self.get_heuristics()
+        for move in Commons.knight_moves:
+            new_position = (current_position[0] + move[0], current_position[1] + move[1])
+            if self.is_valid_position(new_position):
+                moves[heuristics[new_position[0]][new_position[1]]].append(move)
 
-    def print_side_by_side(self, board1, board2) -> None:
+        return [move for sublist in moves for move in sublist]
+        # return [move for sublist in moves for move in sample(sublist, len(sublist))]
+
+class KnightsTour:
+    """
+    Implements a solution for finding a Knight's Tour on a chessboard.
+    This class utilizes the Warnsdorff's Heuristic along with backtracking
+    to calculate the tour.
+
+    The algorithm is designed to find either oopen or closed tours, depending
+    on the termination conditions specified within the 'find_knights_path'
+    method.
+
+    Adjusting these conditions allows for flexible usage according to different
+    requirements or constraints.
+    """
+
+    def find_knights_path(self, current_board: 'Board', current_position: Tuple[int, int], move_index: int) -> List[Tuple[int, int]]:
         """
-        Prints 2 boards side by side. E.g. to log the current game status and the
-        heuristics based on which the decision making is done
+        Recursively calculates a Knight's Tour path from the given position on the chessboard.
+
+        The method clones the current board and attempts to add the current
+        position as a step in the tour. If the move index reaches the total
+        number of squares and the tour can be closed with a knight's move back
+        to the start, the tour is considered complete.
+
+        Parameters:
+            current_board (Board): The current state of the chessboard.
+            current_position (Tuple[int, int]): The current position of the knight, represented as (row, column).
+            move_index (int): The current step number in the tour.
+
+        Returns:
+            List[Tuple[int, int]]: A list of tuples representing the positions of
+            the knight's tour, or an empty list if no tour is found from this position.
         """
-        for y in range(8):
-            for x in range(8):
-                print(board1[y][x], end=' ')
-            print('   ', end='')
-            for x in range(8):
-                print(board2[y][x], end=' ')
-            print()
-        print(35 * '*')
+        board_clone = deepcopy(current_board)
+        board_clone.add_position(current_position)
+        print(f'move_index: {move_index} current_position {current_position}')
+        print(board_clone)
+        # Check termination condition
+        if move_index == 64 and (board_clone.start_position[0] - current_position[0], board_clone.start_position[1] - current_position[1]) in Commons.knight_moves:
+            return [current_position]
+        # get a list of all possible moves and rank them according to heuristics
+        moves = board_clone.get_moves_ranked_by_accessibility(current_position)
+        # iterate over moves until a path is found that fullfils the termination condition
+        for move in moves:
+           board_clone = deepcopy(current_board)
+           board_clone.add_position(current_position)
+           new_position = (current_position[0] + move[0], current_position[1] + move[1])
+           sub_path = self.find_knights_path(board_clone, new_position, move_index + 1)
+           if len(sub_path) > 0:
+               return [current_position] + sub_path
 
-    def evaluate_moves(self, board, position, moves) -> List[List[int]]:
-        heuristics = self.generate_heuristics(board)
-        evaluation = [[] for _ in range(9)]
-        for idx, move in enumerate(moves):
-            target = [position[0] + move[0], position[1] + move[1]]
-            if 0 <= target[0] <= 7 and 0 <= target[1] <= 7 and heuristics[target[0]][target[1]] >= 0:
-                evaluation[heuristics[target[0]][target[1]]].append(idx)
-        return evaluation
-
-    def find_path(self, chess_board, position=None) -> List[Tuple[int, int]]:
-        suggested_moves = []
-        if not position:
-            position = (0, 0)
-
-        keep_going = True
-        step = 1
-
-        while keep_going:
-            chess_board[position[0]][position[1]] = step
-            step += 1
-            heuristics = self.generate_heuristics(chess_board)
-            self.print_side_by_side(chess_board, heuristics)
-
-            evaluation = list(filter(lambda x: len(x) > 0, self.evaluate_moves(chess_board, position, self.knight_moves)))
-
-            if len(evaluation) > 0:
-                suggested_move = self.knight_moves[evaluation[0][0]]
-                suggested_moves.append(suggested_move)
-
-                position = (position[0] + suggested_move[0], position[1] + suggested_move[1])
-
-                print(f'Suggested next move is {self.knight_moves[evaluation[0][0]]}')
-                print(evaluation)
-            else:
-                keep_going = False
-                print('Done.')
-
-        return suggested_moves
+        # if no move is available that can generate a sub path that satisfies the condition, hand back an empty path so that the caller can backtrack
+        return []
