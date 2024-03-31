@@ -1,9 +1,27 @@
 from copy import deepcopy
 from random import sample
-from typing import List, Tuple
+from typing import Optional, List, Tuple
 
 class Commons:
     knight_moves = [(2,1),(1,2),(-1,2),(-2,1),(-2,-1),(-1,-2),(1,-2),(2,-1)]
+
+class KnightsTourConfig:
+    def __init__(self, verbose: bool = False, randomize_paths: bool = False, closed_paths: bool = False):
+        self.verbose = verbose
+        self.randomize_paths = randomize_paths
+        self.closed_paths = closed_paths
+
+    def __str__(self):
+        return f'verbose: {self.verbose}; randomize_paths: {self.randomize_paths}; closed_paths: {self.closed_paths}'
+
+    def termination_rule(self):
+        if self.closed_paths:
+            return lambda start_position, current_position: (
+                    (start_position[0] - current_position[0],
+                     start_position[1] - current_position[1])
+                    in Commons.knight_moves)
+        else:
+            return lambda _start_position, _current_position: True
 
 class Board:
     """
@@ -17,7 +35,7 @@ class Board:
     def __init__(self):
         self.squares = [[0 for _ in range(8)] for _ in range(8)]
         self.move_count = 0
-        self.start_position = None
+        self.start_position = (-1,-1)
 
     def __str__(self):
         result = ""
@@ -65,13 +83,14 @@ class Board:
                             heuristics[row][col] += 1
         return heuristics
 
-    def get_moves_ranked_by_accessibility(self, current_position: Tuple[int, int]) -> List[Tuple[int, int]]:
+    def get_moves_ranked_by_accessibility(self, current_position: Tuple[int, int], config: Optional[KnightsTourConfig] = None) -> List[Tuple[int, int]]:
         """
         Returns the indices of Commons.knight_moves which constitute valid
         moves from the indicated current position.
         The moves are sorted by the accessibility of the target squares of the
         move in ascending order.
         """
+        config = config or KnightsTourConfig()
         moves = [[] for _ in range(9)]
         heuristics = self.get_heuristics()
         for move in Commons.knight_moves:
@@ -79,10 +98,16 @@ class Board:
             if self.is_valid_position(new_position):
                 moves[heuristics[new_position[0]][new_position[1]]].append(move)
 
-        return [move for sublist in moves for move in sublist]
-        # return [move for sublist in moves for move in sample(sublist, len(sublist))]
+        if config.randomize_paths:
+          return [move for sublist in moves for move in sample(sublist, len(sublist))]
+        else:
+          return [move for sublist in moves for move in sublist]
 
 class KnightsTour:
+
+    def __init__(self, config: Optional[KnightsTourConfig] = None):
+        self.config = config or KnightsTourConfig()
+
     """
     Implements a solution for finding a Knight's Tour on a chessboard.
     This class utilizes the Warnsdorff's Heuristic along with backtracking
@@ -116,13 +141,14 @@ class KnightsTour:
         """
         board_clone = deepcopy(current_board)
         board_clone.add_position(current_position)
-        print(f'move_index: {move_index} current_position {current_position}')
-        print(board_clone)
+        if self.config.verbose:
+            print(f'move_index: {move_index} current_position {current_position}')
+            print(board_clone)
         # Check termination condition
-        if move_index == 64 and (board_clone.start_position[0] - current_position[0], board_clone.start_position[1] - current_position[1]) in Commons.knight_moves:
+        if move_index == 64 and self.config.termination_rule()(current_board.start_position, current_position):
             return [current_position]
         # get a list of all possible moves and rank them according to heuristics
-        moves = board_clone.get_moves_ranked_by_accessibility(current_position)
+        moves = board_clone.get_moves_ranked_by_accessibility(current_position, self.config)
         # iterate over moves until a path is found that fullfils the termination condition
         for move in moves:
            board_clone = deepcopy(current_board)
