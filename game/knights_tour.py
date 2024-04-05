@@ -29,7 +29,7 @@ class Board:
 
     The Board class is responsible for managing the state of the board,
     including the positions visited by the Knight. It offers functionality
-    to add a new position makring the knight's move and tracks the start
+    to add a new position marking the knight's move and tracks the start
     position and the total number of moves made.
     """
     def __init__(self):
